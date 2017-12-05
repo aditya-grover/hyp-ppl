@@ -12,6 +12,8 @@ def parse_args():
     parser.add_argument('--n', default=40, type=int, help='Number of total arms')
     parser.add_argument('--delta', default=0.05, type=float, help='Target error')
     parser.add_argument('--k', default=1, type=int, help='Number of top arms')
+    args = parser.parse_args()
+    return args
 
 
 def get_arms():
@@ -28,13 +30,14 @@ def get_arms():
 
 def get_confidence_interval(arm, number_pulls):
 
-    return tf.abs(arm).quantile(1 - delta) / tf.sqrt(number_pulls)
+    return tf.contrib.distributions.percentile(tf.abs(arm), (1 - delta),
+                                               axis=[0]) / tf.sqrt(number_pulls)
 
 
 def get_best_arm(arms):
 
-    empirical_means = tf.zeros(dims=[n], value=0, name='empirical_means')
-    pull_counts = tf.zeros(dims=[n], value=0, name='arm_counts')
+    empirical_means = tf.zeros(shape=[n], name='empirical_means')
+    pull_counts = tf.zeros(shape=[n], name='arm_counts')
     confidence_bounds = tf.fill(dims=[n], value=np.inf, name='confidence_bounds')
     surviving_arms = arms
 
@@ -42,13 +45,13 @@ def get_best_arm(arms):
         for arm_idx, arm in enumerate(surviving_arms):
             pull_outcome = arm.sample()
             # update empirical means, confidence intervals
-            pull_counts[arm_idx] += 1
-            empirical_means[arm_idx] = (
-                empirical_means[arm_idx] *
-                (pull_counts[arm_idx] - 1) + pull_outcome) / pull_counts[arm_idx]
+            #pull_counts[arm_idx] = tf.assign(pull_counts[arm_idx], pull_counts[arm_idx] + 1)
+            pull_counts = pull_counts + tf.one_hot(arm_idx, 1)
+            empirical_means = (empirical_means * tf.one_hot(arm_idx, 1) *
+                               (pull_counts - 1) + pull_outcome * tf.one_hot(arm_idx, 1)) / (
+                                   pull_counts * tf.one_hot(arm_idx, 1))
 
-            confidence_bounds[arm_idx] = get_confidence_interval(empirical_means[arm_idx],
-                                                                 pull_counts[arm_idx])
+            confidence_bounds = get_confidence_interval(empirical_means, pull_counts)
 
         maxarm = tf.argmax(empirical_means).eval()
 
@@ -67,5 +70,5 @@ if __name__ == '__main__':
     np.set_printoptions(threshold=np.inf)
 
     arms = get_arms()
-
-    get_best_arm(arms)
+    with tf.Session() as sess:
+        get_best_arm(arms)
