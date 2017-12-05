@@ -6,8 +6,7 @@ import argparse
 
 def parse_args():
 
-    parser = argparse.ArgumentParser(
-        description='Best arm identification with ppl.')
+    parser = argparse.ArgumentParser(description='Best arm identification with ppl.')
     parser.add_argument('--seed', default=0, type=int, help='Seed for random number generators')
     parser.add_argument('--n', default=40, type=int, help='Number of total arms')
     parser.add_argument('--delta', default=0.05, type=float, help='Target error')
@@ -31,8 +30,8 @@ def get_arms():
 
 def get_confidence_interval(arm, pull_count, scales):
 
-    return scales*tf.contrib.distributions.percentile(tf.abs(arm), (1 - delta),
-                                               axis=[0]) / tf.sqrt(pull_count)
+    return scales * tf.contrib.distributions.percentile(tf.abs(arm), (1 - delta),
+                                                        axis=[0]) / tf.sqrt(pull_count)
 
 
 def get_best_arm(arms):
@@ -41,24 +40,25 @@ def get_best_arm(arms):
     pull_counts = tf.zeros(shape=[n], name='pull_counts')
     confidence_bounds = tf.fill(dims=[n], value=np.inf, name='confidence_bounds')
     surviving_arms = arms.copy()
-    surviving_arm_idx = tf.zeros(shape=[n], name='surviving_arm_idx') 
+    surviving_arm_idx = tf.zeros(shape=[n], name='surviving_arm_idx')
     current_pull_outcome = tf.zeros(shape=[n], name='current_pull_outcome')
-    scales = tf.convert_to_tensor(np.array([arm.scale.eval() for arm in arms]), dtype=tf.float32, name='scales')
+    scales = tf.convert_to_tensor(
+        np.array([arm.scale.eval() for arm in arms]), dtype=tf.float32, name='scales')
 
     while (len(surviving_arms) > 1):
         for arm_idx, arm in enumerate(arms):
             if arm in surviving_arms:
-                surviving_arm_idx = surviving_arm_idx + tf.one_hot(arm_idx, n) 
+                surviving_arm_idx = surviving_arm_idx + tf.one_hot(arm_idx, n)
                 current_pull_outcome = arm.sample() * tf.one_hot(arm_idx, n) + current_pull_outcome
                 pull_counts = pull_counts + tf.one_hot(arm_idx, n)
         empirical_means = (empirical_means * (pull_counts - 1) + current_pull_outcome) / pull_counts
 
         confidence_bounds = get_confidence_interval(empirical_means, pull_counts, scales)
-        empirical_means = surviving_arm_idx * empirical_means # only consider surviving arms for argmax
+        empirical_means = surviving_arm_idx * empirical_means  # only consider surviving arms for argmax
         maxmeans, maxarms = tf.nn.top_k(empirical_means, k=2)
         maxmeans = maxmeans.eval()
         maxarms = maxarms.eval()
-        
+
         cb_eval = confidence_bounds.eval()
         print(empirical_means.eval(), cb_eval)
         print(maxmeans, maxarms)
@@ -67,7 +67,10 @@ def get_best_arm(arms):
         ucb_second_best = maxmeans[1] + cb_eval[maxarms[1]]
         # print(lcb_best, ucb_second_best)
         if lcb_best > ucb_second_best:
-            surviving_arms.pop(maxarms[1])
+            try:
+                surviving_arms.remove(arms[maxarms[1]])
+            except ValueError:
+                pass
 
         if len(surviving_arms) == 1:
             best_arm = maxarms[0]
