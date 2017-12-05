@@ -98,4 +98,6 @@ if __name__ == '__main__':
         print('true_means', means)
         print('scales', [arm.scale.eval() for arm in arms])
         best_arm = get_best_arm(arms)
+
+    print("-- Best Arm --")
     print(best_arm)
