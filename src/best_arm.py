@@ -50,7 +50,11 @@ def get_best_arm(arms):
             confidence_bounds[arm_idx] = get_confidence_interval(empirical_means[arm_idx],
                                                                  pull_counts[arm_idx])
 
-        maxarm = tf.argmax(empirical_means)
+        maxarm = tf.argmax(empirical_means).eval()
+
+        surviving_arms.pop(maxarm)
+
+    return maxarm
 
 
 if __name__ == '__main__':
