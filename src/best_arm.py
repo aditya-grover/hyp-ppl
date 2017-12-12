@@ -55,7 +55,7 @@ def get_best_arm(arms):
 
         confidence_bounds = get_confidence_interval(empirical_means, pull_counts, scales)
         empirical_means = surviving_arm_idx * empirical_means  # only consider surviving arms for argmax
-        maxmeans, maxarms = tf.nn.top_k(empirical_means, k=2)
+        maxmeans, maxarms = tf.nn.top_k(empirical_means, k=n)
         maxmeans = maxmeans.eval()
         maxarms = maxarms.eval()
 
@@ -64,13 +64,17 @@ def get_best_arm(arms):
         print(maxmeans, maxarms)
         print()
         lcb_best = maxmeans[0] - cb_eval[maxarms[0]]
-        ucb_second_best = maxmeans[1] + cb_eval[maxarms[1]]
-        # print(lcb_best, ucb_second_best)
-        if lcb_best > ucb_second_best:
-            try:
-                surviving_arms.remove(arms[maxarms[1]])
-            except ValueError:
-                pass
+        for arm_idx, arm in enumerate(maxarms):
+            if arm_idx == 0:
+                continue
+
+            ucb_second_best = maxmeans[arm_idx] + cb_eval[maxarms[arm_idx]]
+            # print(lcb_best, ucb_second_best)
+            if lcb_best > ucb_second_best:
+                try:
+                    surviving_arms.remove(arms[maxarms[arm_idx]])
+                except ValueError:
+                    pass
 
         if len(surviving_arms) == 1:
             best_arm = maxarms[0]
